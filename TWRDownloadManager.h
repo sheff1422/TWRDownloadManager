@@ -8,6 +8,7 @@
 
 #import <Foundation/Foundation.h>
 #import <CoreGraphics/CGBase.h>
+#import "TWRDownloadObject.h"
 
 @interface TWRDownloadManager : NSObject
 
@@ -19,27 +20,29 @@
                   withName:(NSString *)fileName
           inDirectoryNamed:(NSString *)directory
               friendlyName:(NSString *)friendlyName
-             progressBlock:(void(^)(CGFloat progress))progressBlock
-             remainingTime:(void(^)(NSUInteger seconds))remainingTimeBlock
-           completionBlock:(void(^)(BOOL completed))completionBlock
+             progressBlock:(TWRDownloadProgressBlock)progressBlock
+               cancelBlock:(TWRDownloadCancelationBlock)cancelBlock
+                errorBlock:(TWRDownloadErrorBlock)errorBlock
+             remainingTime:(TWRDownloadRemainingTimeBlock)remainingTimeBlock
+           completionBlock:(TWRDownloadCompletionBlock)completionBlock
       enableBackgroundMode:(BOOL)backgroundMode;
 
 - (void)downloadFileForURL:(NSString *)url
                   withName:(NSString *)fileName
           inDirectoryNamed:(NSString *)directory
-             progressBlock:(void(^)(CGFloat progress))progressBlock
-           completionBlock:(void(^)(BOOL completed))completionBlock
+             progressBlock:(TWRDownloadProgressBlock)progressBlock
+           completionBlock:(TWRDownloadCompletionBlock)completionBlock
       enableBackgroundMode:(BOOL)backgroundMode;
 
 - (void)downloadFileForURL:(NSString *)url
           inDirectoryNamed:(NSString *)directory
-             progressBlock:(void(^)(CGFloat progress))progressBlock
-           completionBlock:(void(^)(BOOL completed))completionBlock
+             progressBlock:(TWRDownloadProgressBlock)progressBlock
+           completionBlock:(TWRDownloadCompletionBlock)completionBlock
       enableBackgroundMode:(BOOL)backgroundMode;
 
 - (void)downloadFileForURL:(NSString *)url
-             progressBlock:(void(^)(CGFloat progress))progressBlock
-           completionBlock:(void(^)(BOOL completed))completionBlock
+             progressBlock:(TWRDownloadProgressBlock)progressBlock
+           completionBlock:(TWRDownloadCompletionBlock)completionBlock
       enableBackgroundMode:(BOOL)backgroundMode;
 
 #pragma mark - Download with estimated time
@@ -47,22 +50,22 @@
 - (void)downloadFileForURL:(NSString *)url
                   withName:(NSString *)fileName
           inDirectoryNamed:(NSString *)directory
-             progressBlock:(void(^)(CGFloat progress))progressBlock
-             remainingTime:(void(^)(NSUInteger seconds))remainingTimeBlock
-           completionBlock:(void(^)(BOOL completed))completionBlock
+             progressBlock:(TWRDownloadProgressBlock)progressBlock
+             remainingTime:(TWRDownloadRemainingTimeBlock)remainingTimeBlock
+           completionBlock:(TWRDownloadCompletionBlock)completionBlock
       enableBackgroundMode:(BOOL)backgroundMode;
 
 - (void)downloadFileForURL:(NSString *)url
           inDirectoryNamed:(NSString *)directory
-             progressBlock:(void(^)(CGFloat progress))progressBlock
-             remainingTime:(void(^)(NSUInteger seconds))remainingTimeBlock
-           completionBlock:(void(^)(BOOL completed))completionBlock
+             progressBlock:(TWRDownloadProgressBlock)progressBlock
+             remainingTime:(TWRDownloadRemainingTimeBlock)remainingTimeBlock
+           completionBlock:(TWRDownloadCompletionBlock)completionBlock
       enableBackgroundMode:(BOOL)backgroundMode;
 
 - (void)downloadFileForURL:(NSString *)url
-             progressBlock:(void(^)(CGFloat progress))progressBlock
-             remainingTime:(void(^)(NSUInteger seconds))remainingTimeBlock
-           completionBlock:(void(^)(BOOL completed))completionBlock
+             progressBlock:(TWRDownloadProgressBlock)progressBlock
+             remainingTime:(TWRDownloadRemainingTimeBlock)remainingTimeBlock
+           completionBlock:(TWRDownloadCompletionBlock)completionBlock
       enableBackgroundMode:(BOOL)backgroundMode;
 
 - (void)cancelAllDownloads;
@@ -71,8 +74,8 @@
 - (void)cleanDirectoryNamed:(NSString *)directory;
 
 - (BOOL)isFileDownloadingForUrl:(NSString *)fileIdentifier;
-- (BOOL)isFileDownloadingForUrl:(NSString *)url withProgressBlock:(void(^)(CGFloat progress))block;
-- (BOOL)isFileDownloadingForUrl:(NSString *)url withProgressBlock:(void(^)(CGFloat progress))block completionBlock:(void(^)(BOOL completed))completionBlock;
+- (BOOL)isFileDownloadingForUrl:(NSString *)url withProgressBlock:(TWRDownloadProgressBlock)block;
+- (BOOL)isFileDownloadingForUrl:(NSString *)url withProgressBlock:(TWRDownloadProgressBlock)block completionBlock:(TWRDownloadCompletionBlock)completionBlock;
 
 - (NSString *)localPathForFile:(NSString *)fileIdentifier;
 - (NSString *)localPathForFile:(NSString *)fileIdentifier inDirectory:(NSString *)directoryName;

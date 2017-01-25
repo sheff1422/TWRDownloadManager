@@ -9,13 +9,17 @@
 #import <Foundation/Foundation.h>
 #import <CoreGraphics/CGBase.h>
 
-typedef void(^TWRDownloadRemainingTimeBlock)(NSUInteger seconds);
-typedef void(^TWRDownloadProgressBlock)(CGFloat progress);
-typedef void(^TWRDownloadCompletionBlock)(BOOL completed);
+typedef void(^TWRDownloadRemainingTimeBlock)(NSString* url, NSUInteger seconds);
+typedef void(^TWRDownloadProgressBlock)(NSString* url, CGFloat progress);
+typedef void(^TWRDownloadCancelationBlock)(NSString* url);
+typedef void(^TWRDownloadErrorBlock)(NSString* url);
+typedef void(^TWRDownloadCompletionBlock)(NSString* url);
 
 @interface TWRDownloadObject : NSObject
 
 @property (copy, nonatomic) TWRDownloadProgressBlock progressBlock;
+@property (copy, nonatomic) TWRDownloadCancelationBlock cancelationBlock;
+@property (copy, nonatomic) TWRDownloadErrorBlock errorBlock;
 @property (copy, nonatomic) TWRDownloadCompletionBlock completionBlock;
 @property (copy, nonatomic) TWRDownloadRemainingTimeBlock remainingTimeBlock;
 
@@ -27,6 +31,8 @@ typedef void(^TWRDownloadCompletionBlock)(BOOL completed);
 
 - (instancetype)initWithDownloadTask:(NSURLSessionDownloadTask *)downloadTask
                        progressBlock:(TWRDownloadProgressBlock)progressBlock
+                       cancelBlock:(TWRDownloadCancelationBlock)cancelBlock
+                       errorBlock:(TWRDownloadErrorBlock)errorBlock
                        remainingTime:(TWRDownloadRemainingTimeBlock)remainingTimeBlock
                      completionBlock:(TWRDownloadCompletionBlock)completionBlock;
 

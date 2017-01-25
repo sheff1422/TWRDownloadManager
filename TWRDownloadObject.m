@@ -12,6 +12,8 @@
 
 - (instancetype)initWithDownloadTask:(NSURLSessionDownloadTask *)downloadTask
                        progressBlock:(TWRDownloadProgressBlock)progressBlock
+                         cancelBlock:(TWRDownloadCancelationBlock)cancelBlock
+                          errorBlock:(TWRDownloadErrorBlock)errorBlock
                        remainingTime:(TWRDownloadRemainingTimeBlock)remainingTimeBlock
                      completionBlock:(TWRDownloadCompletionBlock)completionBlock {
     self = [super init];
@@ -20,6 +22,8 @@
         self.progressBlock = progressBlock;
         self.remainingTimeBlock = remainingTimeBlock;
         self.completionBlock = completionBlock;
+        self.cancelationBlock = cancelBlock;
+        self.errorBlock = errorBlock;
     }
     return self;
 }
