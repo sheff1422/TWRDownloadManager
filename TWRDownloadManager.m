@@ -35,18 +35,18 @@
         // Default session
         NSURLSessionConfiguration *configuration = [NSURLSessionConfiguration defaultSessionConfiguration];
         self.session = [NSURLSession sessionWithConfiguration:configuration delegate:self delegateQueue:nil];
-
+        
         // Background session
         NSURLSessionConfiguration *backgroundConfiguration = nil;
-
+        
         if (floor(NSFoundationVersionNumber) > NSFoundationVersionNumber_iOS_7_1) {
             backgroundConfiguration = [NSURLSessionConfiguration backgroundSessionConfigurationWithIdentifier:[[NSBundle mainBundle] bundleIdentifier]];
         } else {
             backgroundConfiguration = [NSURLSessionConfiguration backgroundSessionConfiguration:@"re.touchwa.downloadmanager"];
         }
-
+        
         self.backgroundSession = [NSURLSession sessionWithConfiguration:backgroundConfiguration delegate:self delegateQueue:nil];
-
+        
         self.downloads = [NSMutableDictionary new];
     }
     return self;
@@ -68,11 +68,11 @@
     if (!fileName) {
         fileName = [urlString lastPathComponent];
     }
-
+    
     if (!friendlyName) {
         friendlyName = fileName;
     }
-
+    
     if (![self fileDownloadCompletedForUrl:urlString]) {
         NSLog(@"File is downloading!");
         
@@ -82,8 +82,6 @@
     NSData *existingData = nil;
     if ([self fileExistsWithName:fileName inDirectory:directory]) {
         [self deleteFileWithName:fileName inDirectory:directory];
-        
-        [[NSFileManager defaultManager] createFileAtPath:[self localPathForFile:fileName inDirectory:directory] contents:nil attributes:nil];
     }
     
     NSURLRequest *request = [NSURLRequest requestWithURL:url];
@@ -158,11 +156,11 @@
            completionBlock:(TWRDownloadCompletionBlock)completionBlock
       enableBackgroundMode:(BOOL)backgroundMode {
     [self downloadFileForURL:urlString
-                   withName:fileName
-           inDirectoryNamed:directory
-              progressBlock:progressBlock
-              remainingTime:nil
-            completionBlock:completionBlock
+                    withName:fileName
+            inDirectoryNamed:directory
+               progressBlock:progressBlock
+               remainingTime:nil
+             completionBlock:completionBlock
         enableBackgroundMode:backgroundMode];
 }
 
@@ -245,7 +243,7 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
             }
         });
     }
-
+    
     CGFloat remainingTime = [self remainingTimeForDownload:download bytesTransferred:totalBytesWritten totalBytesExpectedToWrite:totalBytesExpectedToWrite];
     if (download.remainingTimeBlock) {
         dispatch_async(dispatch_get_main_queue(), ^(void) {
@@ -275,8 +273,18 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
     
     long long totalBytesExpectedToWrite = dataTask.response.expectedContentLength;
     totalBytesExpectedToWrite = totalBytesExpectedToWrite <= 0 ? -1 : totalBytesExpectedToWrite;
-
-    [data writeToFile:[self localPathForFile:download.fileName inDirectory:download.directoryName] atomically:YES];
+    
+    NSFileHandle *fileHandle = [NSFileHandle fileHandleForWritingAtPath:[self localPathForFile:download.fileName inDirectory:download.directoryName]];
+    if (!fileHandle)
+    {
+        [data writeToFile:[self localPathForFile:download.fileName inDirectory:download.directoryName] atomically:YES];
+    }
+    else
+    {
+        [fileHandle seekToEndOfFile];
+        [fileHandle writeData:data];
+        [fileHandle closeFile];
+    }
     
     if (download.progressBlock) {
         
@@ -301,7 +309,7 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
 //// Download finished
 //- (void)URLSession:(NSURLSession *)session dataTask:(nonnull NSURLSessionDataTask *)dataTask willCacheResponse:(nonnull NSCachedURLResponse *)proposedResponse completionHandler:(nonnull void (^)(NSCachedURLResponse * _Nullable))completionHandler
 //{
-//    
+//
 //}
 
 //- (void)URLSession:(NSURLSession *)session downloadTask:(NSURLSessionDownloadTask *)downloadTask didFinishDownloadingToURL:(NSURL *)location {
@@ -338,13 +346,13 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
 //	    if (error) {
 //	        NSLog(@"ERROR: %@", error);
 //	    }
-//        
+//
 //        if (download.completionBlock) {
 //            dispatch_async(dispatch_get_main_queue(), ^(void) {
 //                download.completionBlock(fileIdentifier);
 //            });
 //        }
-//        
+//
 //        dispatch_async(dispatch_get_main_queue(), ^{
 //            // Show a local notification when download is over.
 //            UILocalNotification *localNotification = [[UILocalNotification alloc] init];
@@ -380,7 +388,7 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
     
     if (error || !success) {
         NSLog(@"ERROR: %@", error);
-
+        
         if (download.errorBlock) {
             dispatch_async(dispatch_get_main_queue(), ^(void) {
                 download.errorBlock(fileIdentifier);
@@ -423,7 +431,7 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
     NSArray *paths = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
     NSString *cachesDirectory = [paths objectAtIndex:0];
     NSString *targetDirectory = [cachesDirectory stringByAppendingPathComponent:directory];
-
+    
     NSError *error;
     return [[NSFileManager defaultManager] createDirectoryAtPath:targetDirectory
                                      withIntermediateDirectories:YES
@@ -478,7 +486,7 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
 }
 
 #pragma mark File existance
-                           
+
 - (NSString *)localPathForFile:(NSString *)fileIdentifier {
     return [self localPathForFile:fileIdentifier inDirectory:nil];
 }
@@ -501,15 +509,15 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
 - (BOOL)fileExistsWithName:(NSString *)fileName
                inDirectory:(NSString *)directoryName {
     BOOL exists = NO;
-
+    
     NSArray *paths = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
     NSString *cachesDirectory = [paths objectAtIndex:0];
-
+    
     // if no directory was provided, we look by default in the base cached dir
     if ([[NSFileManager defaultManager] fileExistsAtPath:[[cachesDirectory stringByAppendingPathComponent:directoryName] stringByAppendingPathComponent:fileName]]) {
         exists = YES;
     }
-
+    
     return exists;
 }
 
@@ -534,7 +542,7 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
 - (BOOL)deleteFileWithName:(NSString *)fileName
                inDirectory:(NSString *)directoryName {
     BOOL deleted = NO;
-
+    
     NSError *error;
     NSURL *fileLocation;
     if (directoryName) {
@@ -542,12 +550,12 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
     } else {
         fileLocation = [[self cachesDirectoryUrlPath] URLByAppendingPathComponent:fileName];
     }
-
-
+    
+    
     // Move downloaded item from tmp directory to te caches directory
     // (not synced with user's iCloud documents)
     [[NSFileManager defaultManager] removeItemAtURL:fileLocation error:&error];
-
+    
     if (error) {
         deleted = NO;
         NSLog(@"Error deleting file: %@", error);
@@ -583,17 +591,17 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
             if (self.backgroundTransferCompletionHandler != nil) {
                 // Copy locally the completion handler.
                 void(^completionHandler)() = self.backgroundTransferCompletionHandler;
-
+                
                 [[NSOperationQueue mainQueue] addOperationWithBlock:^{
                     // Call the completion handler to tell the system that there are no other background transfers.
                     completionHandler();
-
+                    
                     // Show a local notification when all downloads are over.
                     UILocalNotification *localNotification = [[UILocalNotification alloc] init];
                     localNotification.alertBody = @"All files have been downloaded!";
                     [[UIApplication sharedApplication] presentLocalNotificationNow:localNotification];
                 }];
-
+                
                 // Make nil the backgroundTransferCompletionHandler.
                 self.backgroundTransferCompletionHandler = nil;
             }
