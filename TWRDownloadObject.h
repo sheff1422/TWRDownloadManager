@@ -23,13 +23,13 @@ typedef void(^TWRDownloadCompletionBlock)(NSString* url);
 @property (copy, nonatomic) TWRDownloadCompletionBlock completionBlock;
 @property (copy, nonatomic) TWRDownloadRemainingTimeBlock remainingTimeBlock;
 
-@property (strong, nonatomic) NSURLSessionDownloadTask *downloadTask;
+@property (strong, nonatomic) NSURLSessionTask *downloadTask;
 @property (copy, nonatomic) NSString *fileName;
 @property (copy, nonatomic) NSString *friendlyName;
 @property (copy, nonatomic) NSString *directoryName;
 @property (copy, nonatomic) NSDate *startDate;
 
-- (instancetype)initWithDownloadTask:(NSURLSessionDownloadTask *)downloadTask
+- (instancetype)initWithDownloadTask:(NSURLSessionTask *)downloadTask
                        progressBlock:(TWRDownloadProgressBlock)progressBlock
                        cancelBlock:(TWRDownloadCancelationBlock)cancelBlock
                        errorBlock:(TWRDownloadErrorBlock)errorBlock

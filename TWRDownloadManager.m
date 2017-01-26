@@ -75,24 +75,32 @@
 
     if (![self fileDownloadCompletedForUrl:urlString]) {
         NSLog(@"File is downloading!");
-    } else if (![self fileExistsWithName:fileName inDirectory:directory]) {
-        NSURLRequest *request = [NSURLRequest requestWithURL:url];
-        NSURLSessionDownloadTask *downloadTask;
-        if (backgroundMode) {
-            downloadTask = [self.backgroundSession downloadTaskWithRequest:request];
-        } else {
-            downloadTask = [self.session downloadTaskWithRequest:request];
-        }
-        TWRDownloadObject *downloadObject = [[TWRDownloadObject alloc] initWithDownloadTask:downloadTask progressBlock:progressBlock cancelBlock:cancelBlock errorBlock:errorBlock remainingTime:remainingTimeBlock completionBlock:completionBlock];
-        downloadObject.startDate = [NSDate date];
-        downloadObject.fileName = fileName;
-        downloadObject.friendlyName = friendlyName;
-        downloadObject.directoryName = directory;
-        [self.downloads addEntriesFromDictionary:@{urlString:downloadObject}];
-        [downloadTask resume];
-    } else {
-        NSLog(@"File already exists!");
+        
+        return;
     }
+    
+    NSData *existingData = nil;
+    if ([self fileExistsWithName:fileName inDirectory:directory]) {
+        [self deleteFileWithName:fileName inDirectory:directory];
+        
+        [[NSFileManager defaultManager] createFileAtPath:[self localPathForFile:fileName inDirectory:directory] contents:nil attributes:nil];
+    }
+    
+    NSURLRequest *request = [NSURLRequest requestWithURL:url];
+    NSURLSessionDataTask *downloadTask;
+    if (backgroundMode) {
+        downloadTask = [self.backgroundSession dataTaskWithRequest:request];
+    } else {
+        downloadTask = [self.session dataTaskWithRequest:request];
+    }
+    
+    TWRDownloadObject *downloadObject = [[TWRDownloadObject alloc] initWithDownloadTask:downloadTask progressBlock:progressBlock cancelBlock:cancelBlock errorBlock:errorBlock remainingTime:remainingTimeBlock completionBlock:completionBlock];
+    downloadObject.startDate = [NSDate date];
+    downloadObject.fileName = fileName;
+    downloadObject.friendlyName = friendlyName;
+    downloadObject.directoryName = directory;
+    [self.downloads addEntriesFromDictionary:@{urlString:downloadObject}];
+    [downloadTask resume];
 }
 
 - (void)downloadFileForURL:(NSString *)urlString
@@ -248,41 +256,139 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
     }
 }
 
-- (void)URLSession:(NSURLSession *)session downloadTask:(NSURLSessionDownloadTask *)downloadTask didFinishDownloadingToURL:(NSURL *)location {
-//    NSLog(@"Download finisehd!");
-
-    NSError *error;
-    NSURL *destinationLocation;
-
-    NSString *fileIdentifier = downloadTask.originalRequest.URL.absoluteString;
+// Download progress
+- (void)URLSession:(NSURLSession *)session dataTask:(nonnull NSURLSessionDataTask *)dataTask didReceiveData:(nonnull NSData *)data
+{
+    NSString *fileIdentifier = dataTask.originalRequest.URL.absoluteString;
     TWRDownloadObject *download = [self.downloads objectForKey:fileIdentifier];
+    
+    NSError *error;
+    NSDictionary *fileAttributes = [[NSFileManager defaultManager] attributesOfItemAtPath:[self localPathForFile:download.fileName inDirectory:download.directoryName] error:&error];
+    
+    long long totalBytesWritten = 0;
+    if (!error)
+    {
+        NSNumber *fileSizeNumber = [fileAttributes objectForKey:NSFileSize];
+        totalBytesWritten = [fileSizeNumber longLongValue];
+    }
+    totalBytesWritten += [data length];
+    
+    long long totalBytesExpectedToWrite = dataTask.response.expectedContentLength;
+    totalBytesExpectedToWrite = totalBytesExpectedToWrite <= 0 ? -1 : totalBytesExpectedToWrite;
 
- 	BOOL success = YES;
+    [data writeToFile:[self localPathForFile:download.fileName inDirectory:download.directoryName] atomically:YES];
+    
+    if (download.progressBlock) {
+        
+        CGFloat progress = (CGFloat)totalBytesWritten / (CGFloat)totalBytesExpectedToWrite;
+        dispatch_async(dispatch_get_main_queue(), ^(void) {
+            if(download.progressBlock){
+                download.progressBlock(fileIdentifier, progress); //exception when progressblock is nil
+            }
+        });
+    }
+    
+    CGFloat remainingTime = [self remainingTimeForDownload:download bytesTransferred:totalBytesWritten totalBytesExpectedToWrite:totalBytesExpectedToWrite];
+    if (download.remainingTimeBlock) {
+        dispatch_async(dispatch_get_main_queue(), ^(void) {
+            if (download.remainingTimeBlock) {
+                download.remainingTimeBlock(fileIdentifier, (NSUInteger)remainingTime);
+            }
+        });
+    }
+}
 
-    if ([downloadTask.response isKindOfClass:[NSHTTPURLResponse class]]) {
-        NSInteger statusCode = [(NSHTTPURLResponse*)downloadTask.response statusCode];
+//// Download finished
+//- (void)URLSession:(NSURLSession *)session dataTask:(nonnull NSURLSessionDataTask *)dataTask willCacheResponse:(nonnull NSCachedURLResponse *)proposedResponse completionHandler:(nonnull void (^)(NSCachedURLResponse * _Nullable))completionHandler
+//{
+//    
+//}
+
+//- (void)URLSession:(NSURLSession *)session downloadTask:(NSURLSessionDownloadTask *)downloadTask didFinishDownloadingToURL:(NSURL *)location {
+////    NSLog(@"Download finisehd!");
+//
+//    NSError *error;
+//    NSURL *destinationLocation;
+//
+//    NSString *fileIdentifier = downloadTask.originalRequest.URL.absoluteString;
+//    TWRDownloadObject *download = [self.downloads objectForKey:fileIdentifier];
+//
+// 	BOOL success = YES;
+//
+//    if ([downloadTask.response isKindOfClass:[NSHTTPURLResponse class]]) {
+//        NSInteger statusCode = [(NSHTTPURLResponse*)downloadTask.response statusCode];
+//        if (statusCode >= 400) {
+//	        NSLog(@"ERROR: HTTP status code %@", @(statusCode));
+//			success = NO;
+//        }
+//    }
+//
+//	if (success) {
+//	    if (download.directoryName) {
+//	        destinationLocation = [[[self cachesDirectoryUrlPath] URLByAppendingPathComponent:download.directoryName] URLByAppendingPathComponent:download.fileName];
+//	    } else {
+//	        destinationLocation = [[self cachesDirectoryUrlPath] URLByAppendingPathComponent:download.fileName];
+//	    }
+//
+//	    // Move downloaded item from tmp directory to te caches directory
+//	    // (not synced with user's iCloud documents)
+//	    [[NSFileManager defaultManager] moveItemAtURL:location
+//	                                            toURL:destinationLocation
+//	                                            error:&error];
+//	    if (error) {
+//	        NSLog(@"ERROR: %@", error);
+//	    }
+//        
+//        if (download.completionBlock) {
+//            dispatch_async(dispatch_get_main_queue(), ^(void) {
+//                download.completionBlock(fileIdentifier);
+//            });
+//        }
+//        
+//        dispatch_async(dispatch_get_main_queue(), ^{
+//            // Show a local notification when download is over.
+//            UILocalNotification *localNotification = [[UILocalNotification alloc] init];
+//            localNotification.alertBody = [NSString stringWithFormat:@"%@ has been downloaded", download.friendlyName];
+//            [[UIApplication sharedApplication] presentLocalNotificationNow:localNotification];
+//        });
+//	}
+//    else {
+//        if (download.errorBlock) {
+//            dispatch_async(dispatch_get_main_queue(), ^(void) {
+//                download.errorBlock(fileIdentifier);
+//            });
+//        }
+//    }
+//
+//    // remove object from the download
+//    [self.downloads removeObjectForKey:fileIdentifier];
+//}
+
+- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error {
+    NSString *fileIdentifier = task.originalRequest.URL.absoluteString;
+    TWRDownloadObject *download = [self.downloads objectForKey:fileIdentifier];
+    
+    BOOL success = YES;
+    
+    if ([task.response isKindOfClass:[NSHTTPURLResponse class]]) {
+        NSInteger statusCode = [(NSHTTPURLResponse*)task.response statusCode];
         if (statusCode >= 400) {
-	        NSLog(@"ERROR: HTTP status code %@", @(statusCode));
-			success = NO;
+            NSLog(@"ERROR: HTTP status code %@", @(statusCode));
+            success = NO;
         }
     }
+    
+    if (error || !success) {
+        NSLog(@"ERROR: %@", error);
 
-	if (success) {
-	    if (download.directoryName) {
-	        destinationLocation = [[[self cachesDirectoryUrlPath] URLByAppendingPathComponent:download.directoryName] URLByAppendingPathComponent:download.fileName];
-	    } else {
-	        destinationLocation = [[self cachesDirectoryUrlPath] URLByAppendingPathComponent:download.fileName];
-	    }
-
-	    // Move downloaded item from tmp directory to te caches directory
-	    // (not synced with user's iCloud documents)
-	    [[NSFileManager defaultManager] moveItemAtURL:location
-	                                            toURL:destinationLocation
-	                                            error:&error];
-	    if (error) {
-	        NSLog(@"ERROR: %@", error);
-	    }
-        
+        if (download.errorBlock) {
+            dispatch_async(dispatch_get_main_queue(), ^(void) {
+                download.errorBlock(fileIdentifier);
+            });
+        }
+    }
+    else
+    {
         if (download.completionBlock) {
             dispatch_async(dispatch_get_main_queue(), ^(void) {
                 download.completionBlock(fileIdentifier);
@@ -295,35 +401,10 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
             localNotification.alertBody = [NSString stringWithFormat:@"%@ has been downloaded", download.friendlyName];
             [[UIApplication sharedApplication] presentLocalNotificationNow:localNotification];
         });
-	}
-    else {
-        if (download.errorBlock) {
-            dispatch_async(dispatch_get_main_queue(), ^(void) {
-                download.errorBlock(fileIdentifier);
-            });
-        }
     }
-
+    
     // remove object from the download
     [self.downloads removeObjectForKey:fileIdentifier];
-}
-
-- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error {
-    if (error) {
-        NSLog(@"ERROR: %@", error);
-
-        NSString *fileIdentifier = task.originalRequest.URL.absoluteString;
-        TWRDownloadObject *download = [self.downloads objectForKey:fileIdentifier];
-
-        if (download.errorBlock) {
-            dispatch_async(dispatch_get_main_queue(), ^(void) {
-                download.errorBlock(fileIdentifier);
-            });
-        }
-
-        // remove object from the download
-        [self.downloads removeObjectForKey:fileIdentifier];
-    }
 }
 
 - (CGFloat)remainingTimeForDownload:(TWRDownloadObject *)download
@@ -397,7 +478,7 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
 }
 
 #pragma mark File existance
-
+                           
 - (NSString *)localPathForFile:(NSString *)fileIdentifier {
     return [self localPathForFile:fileIdentifier inDirectory:nil];
 }
@@ -498,7 +579,7 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
 - (void)URLSessionDidFinishEventsForBackgroundURLSession:(NSURLSession *)session {
     // Check if all download tasks have been finished.
     [session getTasksWithCompletionHandler:^(NSArray *dataTasks, NSArray *uploadTasks, NSArray *downloadTasks) {
-        if ([downloadTasks count] == 0) {
+        if ([dataTasks count] == 0) {
             if (self.backgroundTransferCompletionHandler != nil) {
                 // Copy locally the completion handler.
                 void(^completionHandler)() = self.backgroundTransferCompletionHandler;

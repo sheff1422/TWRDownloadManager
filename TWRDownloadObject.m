@@ -10,7 +10,7 @@
 
 @implementation TWRDownloadObject
 
-- (instancetype)initWithDownloadTask:(NSURLSessionDownloadTask *)downloadTask
+- (instancetype)initWithDownloadTask:(NSURLSessionTask *)downloadTask
                        progressBlock:(TWRDownloadProgressBlock)progressBlock
                          cancelBlock:(TWRDownloadCancelationBlock)cancelBlock
                           errorBlock:(TWRDownloadErrorBlock)errorBlock
