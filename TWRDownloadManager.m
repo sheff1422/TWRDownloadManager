@@ -10,11 +10,14 @@
 #import "TWRDownloadObject.h"
 #import <UIKit/UIKit.h>
 
+static NSTimeInterval const progressUpdateSeconds = 0.5;
+
 @interface TWRDownloadManager () <NSURLSessionDelegate, NSURLSessionDownloadDelegate>
 
 @property (strong, nonatomic) NSURLSession *session;
 @property (strong, nonatomic) NSURLSession *backgroundSession;
 @property (strong, nonatomic) NSMutableDictionary *downloads;
+@property (atomic) NSTimeInterval timeLastProgressUpdate;
 
 @end
 
@@ -99,6 +102,8 @@
     downloadObject.directoryName = directory;
     [self.downloads addEntriesFromDictionary:@{urlString:downloadObject}];
     [downloadTask resume];
+    
+    self.timeLastProgressUpdate = 0;
 }
 
 - (void)downloadFileForURL:(NSString *)urlString
@@ -286,23 +291,28 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
         [fileHandle closeFile];
     }
     
-    if (download.progressBlock) {
+    NSTimeInterval now = [[NSDate date] timeIntervalSince1970];
+    if (now - self.timeLastProgressUpdate > progressUpdateSeconds)
+    {
+        self.timeLastProgressUpdate = now;
+        if (download.progressBlock) {
+            
+            CGFloat progress = (CGFloat)totalBytesWritten / (CGFloat)totalBytesExpectedToWrite;
+            dispatch_async(dispatch_get_main_queue(), ^(void) {
+                if(download.progressBlock){
+                    download.progressBlock(fileIdentifier, progress); //exception when progressblock is nil
+                }
+            });
+        }
         
-        CGFloat progress = (CGFloat)totalBytesWritten / (CGFloat)totalBytesExpectedToWrite;
-        dispatch_async(dispatch_get_main_queue(), ^(void) {
-            if(download.progressBlock){
-                download.progressBlock(fileIdentifier, progress); //exception when progressblock is nil
-            }
-        });
-    }
-    
-    CGFloat remainingTime = [self remainingTimeForDownload:download bytesTransferred:totalBytesWritten totalBytesExpectedToWrite:totalBytesExpectedToWrite];
-    if (download.remainingTimeBlock) {
-        dispatch_async(dispatch_get_main_queue(), ^(void) {
-            if (download.remainingTimeBlock) {
-                download.remainingTimeBlock(fileIdentifier, (NSUInteger)remainingTime);
-            }
-        });
+        CGFloat remainingTime = [self remainingTimeForDownload:download bytesTransferred:totalBytesWritten totalBytesExpectedToWrite:totalBytesExpectedToWrite];
+        if (download.remainingTimeBlock) {
+            dispatch_async(dispatch_get_main_queue(), ^(void) {
+                if (download.remainingTimeBlock) {
+                    download.remainingTimeBlock(fileIdentifier, (NSUInteger)remainingTime);
+                }
+            });
+        }
     }
 }
 
