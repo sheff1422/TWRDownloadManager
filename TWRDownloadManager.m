@@ -10,14 +10,18 @@
 #import "TWRDownloadObject.h"
 #import <UIKit/UIKit.h>
 
+static NSString* const EtagsDefault = @"ETagsDefault";
 static NSTimeInterval const progressUpdateSeconds = 0.5;
 
-@interface TWRDownloadManager () <NSURLSessionDelegate, NSURLSessionDownloadDelegate>
+@interface TWRDownloadManager () <NSURLSessionDelegate, NSURLSessionDownloadDelegate, NSURLSessionDataDelegate>
 
 @property (strong, nonatomic) NSURLSession *session;
 @property (strong, nonatomic) NSURLSession *backgroundSession;
 @property (strong, nonatomic) NSMutableDictionary *downloads;
+@property (strong, nonatomic) NSMutableDictionary *downloadOperations;
 @property (atomic) NSTimeInterval timeLastProgressUpdate;
+@property (strong, nonatomic) NSMutableDictionary* urlEtags;
+@property (strong, nonatomic) NSOperationQueue* downloadQueue;
 
 @end
 
@@ -51,6 +55,17 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
         self.backgroundSession = [NSURLSession sessionWithConfiguration:backgroundConfiguration delegate:self delegateQueue:nil];
         
         self.downloads = [NSMutableDictionary new];
+        self.downloadOperations = [NSMutableDictionary new];
+        
+        NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
+        _urlEtags = [[defaults dictionaryForKey:EtagsDefault] mutableCopy];
+        if (!_urlEtags)
+        {
+            _urlEtags = [NSMutableDictionary dictionary];
+        }
+        
+        _downloadQueue = [NSOperationQueue new];
+        [_downloadQueue setMaxConcurrentOperationCount:1];
     }
     return self;
 }
@@ -82,28 +97,73 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
         return;
     }
     
-    NSData *existingData = nil;
-    if ([self fileExistsWithName:fileName inDirectory:directory]) {
-        [self deleteFileWithName:fileName inDirectory:directory];
-    }
+    TWRDownloadObject *downloadObject = [[TWRDownloadObject alloc] initWithDownloadTask:nil progressBlock:progressBlock cancelBlock:cancelBlock errorBlock:errorBlock remainingTime:remainingTimeBlock completionBlock:completionBlock];
+    [self.downloads setObject:downloadObject forKey:urlString];
     
-    NSURLRequest *request = [NSURLRequest requestWithURL:url];
-    NSURLSessionDataTask *downloadTask;
-    if (backgroundMode) {
-        downloadTask = [self.backgroundSession dataTaskWithRequest:request];
-    } else {
-        downloadTask = [self.session dataTaskWithRequest:request];
-    }
+    NSBlockOperation *operation = [NSBlockOperation new];
+    [operation addExecutionBlock:^{
+        
+        NSUInteger bytes = 0;
+        if ([self fileExistsWithName:fileName inDirectory:directory]) {
+            NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
+            [request setHTTPMethod:@"HEAD"];
+            NSHTTPURLResponse *response;
+            [NSURLConnection sendSynchronousRequest: request returningResponse: &response error: nil];
+            
+            BOOL shouldDelete = YES;
+            if ([response respondsToSelector:@selector(allHeaderFields)]) {
+                NSDictionary *dictionary = [response allHeaderFields];
+                
+                NSString* etag = [dictionary objectForKey:@"Etag"];
+                NSString* ranges = [dictionary objectForKey:@"Accept-Ranges"];
+                
+                if (etag && [ranges isEqualToString:@"bytes"]) {
+                    if ([[_urlEtags objectForKey:urlString] isEqualToString:etag])
+                    {
+                        shouldDelete = NO;
+                    }
+                    
+                    [_urlEtags setObject:etag forKey:urlString];
+                    NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
+                    [defaults setObject:_urlEtags forKey:EtagsDefault];
+                    [defaults synchronize];
+                }
+            }
+            
+            if (shouldDelete) {
+                [self deleteFileWithName:fileName inDirectory:directory];
+            }
+            else {
+                bytes = [[[NSFileManager defaultManager] attributesOfItemAtPath:[self localPathForFile:fileName inDirectory:directory] error:nil] fileSize];
+            }
+        }
+        
+        NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
+        if (bytes > 0) {
+            [request setValue:[NSString stringWithFormat:@"%ud-", bytes] forHTTPHeaderField:@"Range"];
+        }
+        
+        NSURLSessionDataTask *downloadTask;
+        if (backgroundMode) {
+            downloadTask = [self.backgroundSession dataTaskWithRequest:request];
+        } else {
+            downloadTask = [self.session dataTaskWithRequest:request];
+        }
+        
+        TWRDownloadObject *downloadObject = [[TWRDownloadObject alloc] initWithDownloadTask:downloadTask progressBlock:progressBlock cancelBlock:cancelBlock errorBlock:errorBlock remainingTime:remainingTimeBlock completionBlock:completionBlock];
+        downloadObject.startDate = [NSDate date];
+        downloadObject.fileName = fileName;
+        downloadObject.friendlyName = friendlyName;
+        downloadObject.directoryName = directory;
+        downloadObject.startBytes = bytes;
+        [self.downloads setObject:downloadObject forKey:urlString];
+        [downloadTask resume];
+        
+        self.timeLastProgressUpdate = 0;
+    }];
+    [self.downloadOperations addEntriesFromDictionary:@{urlString:operation}];
     
-    TWRDownloadObject *downloadObject = [[TWRDownloadObject alloc] initWithDownloadTask:downloadTask progressBlock:progressBlock cancelBlock:cancelBlock errorBlock:errorBlock remainingTime:remainingTimeBlock completionBlock:completionBlock];
-    downloadObject.startDate = [NSDate date];
-    downloadObject.fileName = fileName;
-    downloadObject.friendlyName = friendlyName;
-    downloadObject.directoryName = directory;
-    [self.downloads addEntriesFromDictionary:@{urlString:downloadObject}];
-    [downloadTask resume];
-    
-    self.timeLastProgressUpdate = 0;
+    [_downloadQueue addOperation:operation];
 }
 
 - (void)downloadFileForURL:(NSString *)urlString
@@ -195,6 +255,9 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
 }
 
 - (void)cancelDownloadForUrl:(NSString *)fileIdentifier {
+    NSOperation* op = [self.downloadOperations objectForKey:fileIdentifier];
+    [op cancel];
+    
     TWRDownloadObject *download = [self.downloads objectForKey:fileIdentifier];
     if (download) {
         NSString *url = download.downloadTask.originalRequest.URL.absoluteString;
@@ -211,6 +274,8 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
 }
 
 - (void)cancelAllDownloads {
+    [_downloadQueue cancelAllOperations];
+    
     [self.downloads enumerateKeysAndObjectsUsingBlock:^(id key, TWRDownloadObject *download, BOOL *stop) {
         NSString *url = download.downloadTask.originalRequest.URL.absoluteString;
         [download.downloadTask cancel];
@@ -233,30 +298,50 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
 
 #pragma mark - NSURLSession Delegate
 
-- (void)URLSession:(NSURLSession *)session
-      downloadTask:(NSURLSessionDownloadTask *)downloadTask
-      didWriteData:(int64_t)bytesWritten
- totalBytesWritten:(int64_t)totalBytesWritten
-totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
-    NSString *fileIdentifier = downloadTask.originalRequest.URL.absoluteString;
-    TWRDownloadObject *download = [self.downloads objectForKey:fileIdentifier];
-    if (download.progressBlock) {
-        CGFloat progress = (CGFloat)totalBytesWritten / (CGFloat)totalBytesExpectedToWrite;
-        dispatch_async(dispatch_get_main_queue(), ^(void) {
-            if(download.progressBlock){
-                download.progressBlock(fileIdentifier, progress); //exception when progressblock is nil
-            }
-        });
+//- (void)URLSession:(NSURLSession *)session
+//      downloadTask:(NSURLSessionDownloadTask *)downloadTask
+//      didWriteData:(int64_t)bytesWritten
+// totalBytesWritten:(int64_t)totalBytesWritten
+//totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
+//    NSString *fileIdentifier = downloadTask.originalRequest.URL.absoluteString;
+//    TWRDownloadObject *download = [self.downloads objectForKey:fileIdentifier];
+//    if (download.progressBlock) {
+//        CGFloat progress = (CGFloat)totalBytesWritten / (CGFloat)totalBytesExpectedToWrite;
+//        dispatch_async(dispatch_get_main_queue(), ^(void) {
+//            if(download.progressBlock){
+//                download.progressBlock(fileIdentifier, progress); //exception when progressblock is nil
+//            }
+//        });
+//    }
+//
+//    CGFloat remainingTime = [self remainingTimeForDownload:download bytesTransferred:totalBytesWritten totalBytesExpectedToWrite:totalBytesExpectedToWrite];
+//    if (download.remainingTimeBlock) {
+//        dispatch_async(dispatch_get_main_queue(), ^(void) {
+//            if (download.remainingTimeBlock) {
+//                download.remainingTimeBlock(fileIdentifier, (NSUInteger)remainingTime);
+//            }
+//        });
+//    }
+//}
+
+-(void)URLSession:(NSURLSession *)session dataTask:(NSURLSessionDataTask *)dataTask didReceiveResponse:(NSURLResponse *)r completionHandler:(void (^)(NSURLSessionResponseDisposition))completionHandler
+{
+    NSHTTPURLResponse *response = (NSHTTPURLResponse*)r;
+    
+    if ([response respondsToSelector:@selector(allHeaderFields)]) {
+        NSDictionary *dictionary = [response allHeaderFields];
+        
+        NSString* etag = [dictionary objectForKey:@"Etag"];
+        if (etag)
+        {
+            [_urlEtags setObject:etag forKey:dataTask.originalRequest.URL.absoluteString];
+            NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
+            [defaults setObject:_urlEtags forKey:EtagsDefault];
+            [defaults synchronize];
+        }
     }
     
-    CGFloat remainingTime = [self remainingTimeForDownload:download bytesTransferred:totalBytesWritten totalBytesExpectedToWrite:totalBytesExpectedToWrite];
-    if (download.remainingTimeBlock) {
-        dispatch_async(dispatch_get_main_queue(), ^(void) {
-            if (download.remainingTimeBlock) {
-                download.remainingTimeBlock(fileIdentifier, (NSUInteger)remainingTime);
-            }
-        });
-    }
+    completionHandler(NSURLSessionResponseAllow);
 }
 
 // Download progress
@@ -277,7 +362,7 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
     totalBytesWritten += [data length];
     
     long long totalBytesExpectedToWrite = dataTask.response.expectedContentLength;
-    totalBytesExpectedToWrite = totalBytesExpectedToWrite <= 0 ? -1 : totalBytesExpectedToWrite;
+    totalBytesExpectedToWrite = totalBytesExpectedToWrite <= 0 ? -1 : totalBytesExpectedToWrite + download.startBytes;
     
     NSFileHandle *fileHandle = [NSFileHandle fileHandleForWritingAtPath:[self localPathForFile:download.fileName inDirectory:download.directoryName]];
     if (!fileHandle)
@@ -407,6 +492,11 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
     }
     else
     {
+        [_urlEtags removeObjectForKey:fileIdentifier];
+        NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
+        [defaults setObject:_urlEtags forKey:EtagsDefault];
+        [defaults synchronize];
+        
         if (download.completionBlock) {
             dispatch_async(dispatch_get_main_queue(), ^(void) {
                 download.completionBlock(fileIdentifier);
