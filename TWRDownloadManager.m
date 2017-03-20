@@ -492,7 +492,9 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
     }
     else
     {
-        [_urlEtags removeObjectForKey:fileIdentifier];
+        if (fileIdentifier) {
+            [_urlEtags removeObjectForKey:fileIdentifier];
+        }
         NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
         [defaults setObject:_urlEtags forKey:EtagsDefault];
         [defaults synchronize];
@@ -512,7 +514,9 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
     }
     
     // remove object from the download
-    [self.downloads removeObjectForKey:fileIdentifier];
+    if (fileIdentifier) {
+        [self.downloads removeObjectForKey:fileIdentifier];
+    }
 }
 
 - (CGFloat)remainingTimeForDownload:(TWRDownloadObject *)download
