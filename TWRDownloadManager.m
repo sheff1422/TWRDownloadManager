@@ -140,7 +140,7 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
         
         NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
         if (bytes > 0) {
-            [request setValue:[NSString stringWithFormat:@"%ud-", bytes] forHTTPHeaderField:@"Range"];
+            [request setValue:[NSString stringWithFormat:@"bytes=%ud-", bytes] forHTTPHeaderField:@"Range"];
         }
         
         NSURLSessionDataTask *downloadTask;
