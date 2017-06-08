@@ -371,9 +371,21 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
     }
     else
     {
-        [fileHandle seekToEndOfFile];
-        [fileHandle writeData:data];
-        [fileHandle closeFile];
+        @try {
+            [fileHandle seekToEndOfFile];
+            [fileHandle writeData:data];
+            [fileHandle closeFile];
+        }
+        @catch (NSException *exception) {
+            if (fileIdentifier) {
+                dispatch_async(dispatch_get_main_queue(), ^(void) {
+                    [self cancelDownloadForUrl:fileIdentifier];
+                    if (download.errorBlock) {
+                        download.errorBlock(fileIdentifier);
+                    }
+                });
+            }
+        }
     }
     
     NSTimeInterval now = [[NSDate date] timeIntervalSince1970];
