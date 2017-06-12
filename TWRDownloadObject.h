@@ -29,6 +29,7 @@ typedef void(^TWRDownloadCompletionBlock)(NSString* url);
 @property (copy, nonatomic) NSString *directoryName;
 @property (copy, nonatomic) NSDate *startDate;
 @property (atomic) NSUInteger startBytes;
+@property (atomic) BOOL isRedownload;
 
 
 - (instancetype)initWithDownloadTask:(NSURLSessionTask *)downloadTask

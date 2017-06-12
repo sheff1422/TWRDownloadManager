@@ -98,6 +98,7 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
     }
     
     TWRDownloadObject *downloadObject = [[TWRDownloadObject alloc] initWithDownloadTask:nil progressBlock:progressBlock cancelBlock:cancelBlock errorBlock:errorBlock remainingTime:remainingTimeBlock completionBlock:completionBlock];
+    downloadObject.isRedownload = NO;
     [self.downloads setObject:downloadObject forKey:urlString];
     
     NSBlockOperation *operation = [NSBlockOperation new];
@@ -495,8 +496,30 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
     
     if (error || !success) {
         NSLog(@"ERROR: %@", error);
+        BOOL callErrorBlock = YES;
         
-        if (download.errorBlock) {
+        if (!success) {
+            if ([self fileExistsWithName:download.fileName] && !download.isRedownload) {
+                callErrorBlock = NO;
+                [self.downloads removeObjectForKey:fileIdentifier];
+                [self.urlEtags removeObjectForKey:fileIdentifier];
+                
+                [self deleteFileWithName:[download.fileName stringByAppendingString:@"_tmp"]];
+                [self downloadFileForURL:fileIdentifier withName:[download.fileName stringByAppendingString:@"_tmp"] inDirectoryNamed:download.directoryName friendlyName:download.friendlyName progressBlock:download.progressBlock cancelBlock:download.cancelationBlock errorBlock:download.errorBlock remainingTime:download.remainingTimeBlock completionBlock:^(NSString *url) {
+                    
+                    // Delete file in original path
+                    [self deleteFileWithName:download.fileName];
+                    NSError *error = nil;
+                    [[NSFileManager defaultManager] moveItemAtPath:[download.fileName stringByAppendingString:@"_tmp"] toPath:download.fileName error:&error];
+                    
+                    download.completionBlock(url);
+                } enableBackgroundMode:YES];
+                TWRDownloadObject *redownload = [self.downloads objectForKey:fileIdentifier];
+                redownload.isRedownload = YES;
+            }
+        }
+        
+        if (download.errorBlock && callErrorBlock) {
             dispatch_async(dispatch_get_main_queue(), ^(void) {
                 download.errorBlock(fileIdentifier);
             });
