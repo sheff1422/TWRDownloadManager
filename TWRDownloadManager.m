@@ -97,9 +97,9 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
         return;
     }
     
-    TWRDownloadObject *downloadObject = [[TWRDownloadObject alloc] initWithDownloadTask:nil progressBlock:progressBlock cancelBlock:cancelBlock errorBlock:errorBlock remainingTime:remainingTimeBlock completionBlock:completionBlock];
-    downloadObject.isRedownload = NO;
-    [self.downloads setObject:downloadObject forKey:urlString];
+    TWRDownloadObject *dlObject = [[TWRDownloadObject alloc] initWithDownloadTask:nil progressBlock:progressBlock cancelBlock:cancelBlock errorBlock:errorBlock remainingTime:remainingTimeBlock completionBlock:completionBlock];
+    dlObject.isRedownload = NO;
+    [self.downloads setObject:dlObject forKey:urlString];
     
     NSBlockOperation *operation = [NSBlockOperation new];
     [operation addExecutionBlock:^{
@@ -157,6 +157,7 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
         downloadObject.friendlyName = friendlyName;
         downloadObject.directoryName = directory;
         downloadObject.startBytes = bytes;
+        downloadObject.isRedownload = dlObject.isRedownload;
         [self.downloads setObject:downloadObject forKey:urlString];
         [downloadTask resume];
         
@@ -496,13 +497,11 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
     
     if (error || !success) {
         NSLog(@"ERROR: %@", error);
-        BOOL callErrorBlock = YES;
         
         if (!success) {
             if ([self fileExistsWithName:download.fileName] && !download.isRedownload) {
                 NSString *path = [download.fileName stringByAppendingString:@"_tmp"];
                 if (path) {
-                    callErrorBlock = NO;
                     [self.downloads removeObjectForKey:fileIdentifier];
                     [self.urlEtags removeObjectForKey:fileIdentifier];
                     
@@ -518,11 +517,13 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
                     } enableBackgroundMode:YES];
                     TWRDownloadObject *redownload = [self.downloads objectForKey:fileIdentifier];
                     redownload.isRedownload = YES;
+                    
+                    return;
                 }
             }
         }
         
-        if (download.errorBlock && callErrorBlock) {
+        if (download.errorBlock) {
             dispatch_async(dispatch_get_main_queue(), ^(void) {
                 download.errorBlock(fileIdentifier);
             });
