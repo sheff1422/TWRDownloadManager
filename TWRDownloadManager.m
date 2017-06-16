@@ -500,22 +500,25 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
         
         if (!success) {
             if ([self fileExistsWithName:download.fileName] && !download.isRedownload) {
-                callErrorBlock = NO;
-                [self.downloads removeObjectForKey:fileIdentifier];
-                [self.urlEtags removeObjectForKey:fileIdentifier];
-                
-                [self deleteFileWithName:[download.fileName stringByAppendingString:@"_tmp"]];
-                [self downloadFileForURL:fileIdentifier withName:[download.fileName stringByAppendingString:@"_tmp"] inDirectoryNamed:download.directoryName friendlyName:download.friendlyName progressBlock:download.progressBlock cancelBlock:download.cancelationBlock errorBlock:download.errorBlock remainingTime:download.remainingTimeBlock completionBlock:^(NSString *url) {
+                NSString *path = [download.fileName stringByAppendingString:@"_tmp"];
+                if (path) {
+                    callErrorBlock = NO;
+                    [self.downloads removeObjectForKey:fileIdentifier];
+                    [self.urlEtags removeObjectForKey:fileIdentifier];
                     
-                    // Delete file in original path
-                    [self deleteFileWithName:download.fileName];
-                    NSError *error = nil;
-                    [[NSFileManager defaultManager] moveItemAtPath:[download.fileName stringByAppendingString:@"_tmp"] toPath:download.fileName error:&error];
-                    
-                    download.completionBlock(url);
-                } enableBackgroundMode:YES];
-                TWRDownloadObject *redownload = [self.downloads objectForKey:fileIdentifier];
-                redownload.isRedownload = YES;
+                    [self deleteFileWithName:path];
+                    [self downloadFileForURL:fileIdentifier withName:path inDirectoryNamed:download.directoryName friendlyName:download.friendlyName progressBlock:download.progressBlock cancelBlock:download.cancelationBlock errorBlock:download.errorBlock remainingTime:download.remainingTimeBlock completionBlock:^(NSString *url) {
+                        
+                        // Delete file in original path
+                        [self deleteFileWithName:download.fileName];
+                        NSError *error = nil;
+                        [[NSFileManager defaultManager] moveItemAtPath:path toPath:download.fileName error:&error];
+                        
+                        download.completionBlock(url);
+                    } enableBackgroundMode:YES];
+                    TWRDownloadObject *redownload = [self.downloads objectForKey:fileIdentifier];
+                    redownload.isRedownload = YES;
+                }
             }
         }
         
