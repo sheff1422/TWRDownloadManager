@@ -143,6 +143,9 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
         if (bytes > 0) {
             [request setValue:[NSString stringWithFormat:@"bytes=%ud-", bytes] forHTTPHeaderField:@"Range"];
         }
+        if (_userAgent) {
+            [request setValue:_userAgent forHTTPHeaderField:@"User-Agent"];
+        }
         
         NSURLSessionDataTask *downloadTask;
         if (backgroundMode) {
