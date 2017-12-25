@@ -509,7 +509,15 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
                     [self.urlEtags removeObjectForKey:fileIdentifier];
                     
                     [self deleteFileWithName:path];
-                    [self downloadFileForURL:fileIdentifier withName:path inDirectoryNamed:download.directoryName friendlyName:download.friendlyName progressBlock:download.progressBlock cancelBlock:download.cancelationBlock errorBlock:download.errorBlock remainingTime:download.remainingTimeBlock completionBlock:^(NSString *url) {
+                    [self downloadFileForURL:fileIdentifier withName:path inDirectoryNamed:download.directoryName friendlyName:download.friendlyName progressBlock:download.progressBlock cancelBlock:download.cancelationBlock errorBlock:^(NSString *url) {
+                        // Download failed- delete both files for good measure
+                        [self deleteFileWithName:download.fileName];
+                        [self deleteFileWithName:path];
+                        
+                        if (download.errorBlock) {
+                            download.errorBlock(url);
+                        }
+                    } remainingTime:download.remainingTimeBlock completionBlock:^(NSString *url) {
                         
                         // Delete file in original path
                         [self deleteFileWithName:download.fileName];
