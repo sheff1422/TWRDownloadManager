@@ -32,27 +32,33 @@
     [super viewDidLoad];
     self.progressView.progress = 0.0f;
     self.mainLabel.text = @"TWRDownloadManager Demo";
-    if ([[TWRDownloadManager sharedManager] fileExistsForUrl:FILE_URL]) {
-        self.deleteButton.enabled = YES;
-        self.cancelButton.enabled = NO;
-        self.startButton.enabled = NO;
-    } else {
+//    if ([[TWRDownloadManager sharedManager] fileExistsForUrl:FILE_URL]) {
+//        self.deleteButton.enabled = YES;
+//        self.cancelButton.enabled = NO;
+//        self.startButton.enabled = NO;
+//    } else {
         self.deleteButton.enabled = NO;
         self.cancelButton.enabled = NO;
         self.startButton.enabled = YES;
-    }
+//    }
 }
 
 - (IBAction)startDownload:(id)sender {
     // Just a demo example file...
-    [[TWRDownloadManager sharedManager] downloadFileForURL:FILE_URL progressBlock:^(CGFloat progress) {
+    [[TWRDownloadManager sharedManager] downloadFileForURL:FILE_URL withName:nil inDirectoryNamed:nil friendlyName:nil progressBlock:^(NSString *url, CGFloat progress) {
         NSLog(@"%.2f", progress);
         self.progress = progress;
         self.progressView.progress = progress;
-    } remainingTime:^(NSUInteger seconds) {
+    } cancelBlock:^(NSString *url) {
+        
+    } errorBlock:^(NSString *url) {
+        self.startButton.enabled = YES;
+        self.cancelButton.enabled = NO;
+        self.deleteButton.enabled = NO;
+    } remainingTime:^(NSString *url, NSUInteger seconds) {
         NSLog(@"ETA: %lu sec.", (unsigned long)seconds);
         self.mainLabel.text = [NSString stringWithFormat:@"Progress: %.0f%% - ETA: %lu sec.", self.progress*100, seconds];
-    } completionBlock:^(BOOL completed) {
+    } completionBlock:^(NSString *url) {
         NSLog(@"Download completed!");
         self.deleteButton.enabled = YES;
         self.cancelButton.enabled = NO;
