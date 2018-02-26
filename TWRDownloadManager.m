@@ -76,6 +76,7 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
                   withName:(NSString *)fileName
           inDirectoryNamed:(NSString *)directory
               friendlyName:(NSString *)friendlyName
+          downloadUniqueId:(NSString *)downloadId
              progressBlock:(TWRDownloadProgressBlock)progressBlock
                cancelBlock:(TWRDownloadCancelationBlock)cancelBlock
                 errorBlock:(TWRDownloadErrorBlock)errorBlock
@@ -97,7 +98,7 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
         return;
     }
     
-    TWRDownloadObject *dlObject = [[TWRDownloadObject alloc] initWithDownloadTask:nil progressBlock:progressBlock cancelBlock:cancelBlock errorBlock:errorBlock remainingTime:remainingTimeBlock completionBlock:completionBlock];
+    TWRDownloadObject *dlObject = [[TWRDownloadObject alloc] initWithDownloadTask:nil uniqueIdentifier:downloadId progressBlock:progressBlock cancelBlock:cancelBlock errorBlock:errorBlock remainingTime:remainingTimeBlock completionBlock:completionBlock];
     dlObject.isRedownload = NO;
     [self.downloads setObject:dlObject forKey:urlString];
     
@@ -119,12 +120,13 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
                 NSString* ranges = [dictionary objectForKey:@"Accept-Ranges"];
                 
                 if (etag && [ranges isEqualToString:@"bytes"]) {
-                    if ([[_urlEtags objectForKey:urlString] isEqualToString:etag])
+                    NSString *downloadIdentifier = downloadId ? downloadId : urlString;
+                    if ([[_urlEtags objectForKey:downloadIdentifier] isEqualToString:etag])
                     {
                         shouldDelete = NO;
                     }
                     
-                    [_urlEtags setObject:etag forKey:urlString];
+                    [_urlEtags setObject:etag forKey:downloadIdentifier];
                     NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
                     [defaults setObject:_urlEtags forKey:EtagsDefault];
                     [defaults synchronize];
@@ -154,7 +156,7 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
             downloadTask = [self.session dataTaskWithRequest:request];
         }
         
-        TWRDownloadObject *downloadObject = [[TWRDownloadObject alloc] initWithDownloadTask:downloadTask progressBlock:progressBlock cancelBlock:cancelBlock errorBlock:errorBlock remainingTime:remainingTimeBlock completionBlock:completionBlock];
+        TWRDownloadObject *downloadObject = [[TWRDownloadObject alloc] initWithDownloadTask:downloadTask uniqueIdentifier:downloadId progressBlock:progressBlock cancelBlock:cancelBlock errorBlock:errorBlock remainingTime:remainingTimeBlock completionBlock:completionBlock];
         downloadObject.startDate = [NSDate date];
         downloadObject.fileName = fileName;
         downloadObject.friendlyName = friendlyName;
@@ -182,6 +184,7 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
                     withName:fileName
             inDirectoryNamed:directory
                 friendlyName:fileName
+            downloadUniqueId:nil
                progressBlock:progressBlock
                  cancelBlock:nil
                   errorBlock:nil
@@ -337,9 +340,15 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
         NSDictionary *dictionary = [response allHeaderFields];
         
         NSString* etag = [dictionary objectForKey:@"Etag"];
+        NSString* link = dataTask.originalRequest.URL.absoluteString;
+        NSString* uniqueIdentifier = link;
+        TWRDownloadObject *downloadObject = self.downloads[link];
+        if (downloadObject.uniqueIdentifier) {
+            uniqueIdentifier = downloadObject.uniqueIdentifier;
+        }
         if (etag)
         {
-            [_urlEtags setObject:etag forKey:dataTask.originalRequest.URL.absoluteString];
+            [_urlEtags setObject:etag forKey:uniqueIdentifier];
             NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
             [defaults setObject:_urlEtags forKey:EtagsDefault];
             [defaults synchronize];
@@ -487,6 +496,7 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
 - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error {
     NSString *fileIdentifier = task.originalRequest.URL.absoluteString;
     TWRDownloadObject *download = [self.downloads objectForKey:fileIdentifier];
+    NSString *downloadIdentifier = download.uniqueIdentifier ? download.uniqueIdentifier : fileIdentifier;
     
     BOOL success = YES;
     
@@ -506,10 +516,10 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
                 NSString *path = [download.fileName stringByAppendingString:@"_tmp"];
                 if (path) {
                     [self.downloads removeObjectForKey:fileIdentifier];
-                    [self.urlEtags removeObjectForKey:fileIdentifier];
+                    [self.urlEtags removeObjectForKey:downloadIdentifier];
                     
                     [self deleteFileWithName:path];
-                    [self downloadFileForURL:fileIdentifier withName:path inDirectoryNamed:download.directoryName friendlyName:download.friendlyName progressBlock:download.progressBlock cancelBlock:download.cancelationBlock errorBlock:^(NSString *url) {
+                    [self downloadFileForURL:fileIdentifier withName:path inDirectoryNamed:download.directoryName friendlyName:download.friendlyName downloadUniqueId:downloadIdentifier progressBlock:download.progressBlock cancelBlock:download.cancelationBlock errorBlock:^(NSString *url) {
                         // Download failed- delete both files for good measure
                         [self deleteFileWithName:download.fileName];
                         [self deleteFileWithName:path];
@@ -542,8 +552,8 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
     }
     else
     {
-        if (fileIdentifier) {
-            [_urlEtags removeObjectForKey:fileIdentifier];
+        if (downloadIdentifier) {
+            [_urlEtags removeObjectForKey:downloadIdentifier];
         }
         NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
         [defaults setObject:_urlEtags forKey:EtagsDefault];

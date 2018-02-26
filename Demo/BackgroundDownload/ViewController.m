@@ -45,7 +45,7 @@
 
 - (IBAction)startDownload:(id)sender {
     // Just a demo example file...
-    [[TWRDownloadManager sharedManager] downloadFileForURL:FILE_URL withName:nil inDirectoryNamed:nil friendlyName:nil progressBlock:^(NSString *url, CGFloat  progress, long long totalBytes) {
+    [[TWRDownloadManager sharedManager] downloadFileForURL:FILE_URL withName:nil inDirectoryNamed:nil friendlyName:nil downloadUniqueId:nil progressBlock:^(NSString *url, CGFloat  progress, long long totalBytes) {
         NSLog(@"%.2f", progress);
         self.progress = progress;
         self.progressView.progress = progress;

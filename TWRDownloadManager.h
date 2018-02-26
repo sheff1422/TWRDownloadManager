@@ -21,6 +21,7 @@
                   withName:(NSString *)fileName
           inDirectoryNamed:(NSString *)directory
               friendlyName:(NSString *)friendlyName
+          downloadUniqueId:(NSString *)downloadId //identifies download object in order to handle different url scenarios
              progressBlock:(TWRDownloadProgressBlock)progressBlock
                cancelBlock:(TWRDownloadCancelationBlock)cancelBlock
                 errorBlock:(TWRDownloadErrorBlock)errorBlock

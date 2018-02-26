@@ -11,6 +11,7 @@
 @implementation TWRDownloadObject
 
 - (instancetype)initWithDownloadTask:(NSURLSessionTask *)downloadTask
+                    uniqueIdentifier:(NSString*) uniqueIdentifier
                        progressBlock:(TWRDownloadProgressBlock)progressBlock
                          cancelBlock:(TWRDownloadCancelationBlock)cancelBlock
                           errorBlock:(TWRDownloadErrorBlock)errorBlock
@@ -25,6 +26,7 @@
         self.completionBlock = completionBlock;
         self.cancelationBlock = cancelBlock;
         self.errorBlock = errorBlock;
+        self.uniqueIdentifier = uniqueIdentifier;
     }
     return self;
 }
