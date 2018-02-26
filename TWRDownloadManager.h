@@ -78,6 +78,13 @@
 - (BOOL)isFileDownloadingForUrl:(NSString *)url withProgressBlock:(TWRDownloadProgressBlock)block;
 - (BOOL)isFileDownloadingForUrl:(NSString *)url withProgressBlock:(TWRDownloadProgressBlock)block completionBlock:(TWRDownloadCompletionBlock)completionBlock;
 
+- (BOOL)isFileDownloadingWithFilename:(NSString *)fileNameIdentifier;
+- (BOOL)isFileDownloadingWithFilename:(NSString *)fileNameIdentifier
+                    withProgressBlock:(TWRDownloadProgressBlock)block;
+- (BOOL)isFileDownloadingWithFilename:(NSString *)fileNameIdentifier
+                    withProgressBlock:(TWRDownloadProgressBlock)block
+                      completionBlock:(TWRDownloadCompletionBlock)completionBlock;
+
 - (NSString *)localPathForFile:(NSString *)fileIdentifier;
 - (NSString *)localPathForFile:(NSString *)fileIdentifier inDirectory:(NSString *)directoryName;
 

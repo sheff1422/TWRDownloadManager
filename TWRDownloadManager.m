@@ -632,6 +632,42 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
     return retValue;
 }
 
+- (BOOL)isFileDownloadingWithFilename:(NSString *)fileNameIdentifier {
+    return [self isFileDownloadingWithFilename:fileNameIdentifier
+                             withProgressBlock:nil];
+}
+
+- (BOOL)isFileDownloadingWithFilename:(NSString *)fileNameIdentifier
+              withProgressBlock:(TWRDownloadProgressBlock)block {
+    return [self isFileDownloadingWithFilename:fileNameIdentifier
+                             withProgressBlock:block
+                               completionBlock:nil];
+}
+
+- (BOOL)isFileDownloadingWithFilename:(NSString *)fileNameIdentifier
+              withProgressBlock:(TWRDownloadProgressBlock)block
+                completionBlock:(TWRDownloadCompletionBlock)completionBlock {
+    BOOL retValue = NO;
+    TWRDownloadObject *download;
+    for (TWRDownloadObject *downloadObj in self.downloads) {
+        if ([downloadObj.fileName isEqualToString:fileNameIdentifier]) {
+            download = downloadObj;
+            break;
+        }
+    }
+    if (download) {
+        if (block) {
+            download.progressBlock = block;
+        }
+        if (completionBlock) {
+            download.completionBlock = completionBlock;
+        }
+        retValue = YES;
+    }
+    return retValue;
+}
+
+
 #pragma mark File existance
 
 - (NSString *)localPathForFile:(NSString *)fileIdentifier {
