@@ -94,7 +94,6 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
     
     if (![self fileDownloadCompletedForUrl:urlString]) {
         NSLog(@"File is downloading!");
-        
         return;
     }
     
@@ -143,7 +142,7 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
         
         NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
         if (bytes > 0) {
-            [request setValue:[NSString stringWithFormat:@"bytes=%ud-", bytes] forHTTPHeaderField:@"Range"];
+            [request setValue:[NSString stringWithFormat:@"bytes=%lu-", (unsigned long)bytes] forHTTPHeaderField:@"Range"];
         }
         if (_userAgent) {
             [request setValue:_userAgent forHTTPHeaderField:@"User-Agent"];
@@ -512,7 +511,8 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
         NSLog(@"ERROR: %@", error);
         
         if (!success) {
-            if ([self fileExistsWithName:download.fileName] && !download.isRedownload) {
+            if ([self fileExistsWithName:download.fileName] &&
+                !download.isRedownload) {
                 NSString *path = [download.fileName stringByAppendingString:@"_tmp"];
                 if (path) {
                     [self.downloads removeObjectForKey:fileIdentifier];

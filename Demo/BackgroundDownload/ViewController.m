@@ -32,15 +32,15 @@
     [super viewDidLoad];
     self.progressView.progress = 0.0f;
     self.mainLabel.text = @"TWRDownloadManager Demo";
-//    if ([[TWRDownloadManager sharedManager] fileExistsForUrl:FILE_URL]) {
-//        self.deleteButton.enabled = YES;
-//        self.cancelButton.enabled = NO;
-//        self.startButton.enabled = NO;
-//    } else {
+    if ([[TWRDownloadManager sharedManager] fileExistsForUrl:FILE_URL]) {
+        self.deleteButton.enabled = YES;
+        self.cancelButton.enabled = NO;
+        self.startButton.enabled = NO;
+    } else {
         self.deleteButton.enabled = NO;
         self.cancelButton.enabled = NO;
         self.startButton.enabled = YES;
-//    }
+    }
 }
 
 - (IBAction)startDownload:(id)sender {
