@@ -10,7 +10,7 @@
 #import <CoreGraphics/CGBase.h>
 
 typedef void(^TWRDownloadRemainingTimeBlock)(NSString* url, NSUInteger seconds);
-typedef void(^TWRDownloadProgressBlock)(NSString* url, CGFloat progress);
+typedef void(^TWRDownloadProgressBlock)(NSString* url, CGFloat progress, long long totalBytes);
 typedef void(^TWRDownloadCancelationBlock)(NSString* url);
 typedef void(^TWRDownloadErrorBlock)(NSString* url);
 typedef void(^TWRDownloadCompletionBlock)(NSString* url);
