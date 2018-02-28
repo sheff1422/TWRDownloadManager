@@ -659,7 +659,7 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
                 completionBlock:(TWRDownloadCompletionBlock)completionBlock {
     BOOL retValue = NO;
     TWRDownloadObject *download;
-    for (TWRDownloadObject *downloadObj in self.downloads) {
+    for (TWRDownloadObject *downloadObj in self.downloads.allValues.copy) {
         if ([downloadObj.fileName isEqualToString:fileNameIdentifier]) {
             download = downloadObj;
             break;
