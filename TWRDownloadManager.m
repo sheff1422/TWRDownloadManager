@@ -280,6 +280,27 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
     }
 }
 
+- (BOOL)cancelDownloadWithFilename:(NSString *)fileNameIdentifier {
+    BOOL retValue = NO;
+    TWRDownloadObject *download;
+    for (TWRDownloadObject *downloadObj in self.downloads.allValues.copy) {
+        if ([downloadObj.fileName isEqualToString:fileNameIdentifier]) {
+            download = downloadObj;
+            break;
+        }
+    }
+    if (download) {
+        NSString *url = download.downloadTask.originalRequest.URL.absoluteString;
+        [download.downloadTask cancel];
+        [self.downloads removeObjectForKey:download.uniqueIdentifier];
+        if (download.cancelationBlock) {
+            download.cancelationBlock(url);
+        }
+        retValue = YES;
+    }
+    return retValue;
+}
+
 - (void)cancelAllDownloads {
     [_downloadQueue cancelAllOperations];
     

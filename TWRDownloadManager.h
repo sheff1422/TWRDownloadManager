@@ -72,6 +72,7 @@
 
 - (void)cancelAllDownloads;
 - (void)cancelDownloadForUrl:(NSString *)fileIdentifier;
+- (BOOL)cancelDownloadWithFilename:(NSString *)fileNameIdentifier;
 
 - (void)cleanDirectoryNamed:(NSString *)directory;
 
