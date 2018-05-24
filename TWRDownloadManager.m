@@ -65,7 +65,7 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
         }
         
         _downloadQueue = [NSOperationQueue new];
-        [_downloadQueue setMaxConcurrentOperationCount:1];
+        [_downloadQueue setMaxConcurrentOperationCount:5];
     }
     return self;
 }

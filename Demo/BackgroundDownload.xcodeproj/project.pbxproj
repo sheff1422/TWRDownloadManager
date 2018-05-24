@@ -208,6 +208,7 @@
 				TargetAttributes = {
 					1538CCE319C4F056002C04E6 = {
 						CreatedOnToolsVersion = 6.0;
+						DevelopmentTeam = 575KE96Z2T;
 						SystemCapabilities = {
 							com.apple.BackgroundModes = {
 								enabled = 1;
@@ -390,8 +391,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				DEVELOPMENT_TEAM = 575KE96Z2T;
 				INFOPLIST_FILE = BackgroundDownload/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = re.yuriy.BackgroundDownload;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -400,8 +403,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				DEVELOPMENT_TEAM = 575KE96Z2T;
 				INFOPLIST_FILE = BackgroundDownload/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = re.yuriy.BackgroundDownload;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
