@@ -423,6 +423,8 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
     }
     
     NSTimeInterval now = [[NSDate date] timeIntervalSince1970];
+    CGFloat remainingTime = [self remainingTimeForDownload:download bytesTransferred:totalBytesWritten totalBytesExpectedToWrite:totalBytesExpectedToWrite];
+    CGFloat downloadSpeedBytes = [self downloadSpeedForDownload:download bytesTransferred:totalBytesWritten];
     if (now - self.timeLastProgressUpdate > progressUpdateSeconds)
     {
         self.timeLastProgressUpdate = now;
@@ -431,12 +433,12 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
             CGFloat progress = (CGFloat)totalBytesWritten / (CGFloat)totalBytesExpectedToWrite;
             dispatch_async(dispatch_get_main_queue(), ^(void) {
                 if(download.progressBlock){
-                    download.progressBlock(fileIdentifier, progress, totalBytesExpectedToWrite); //exception when progressblock is nil
+                    download.progressBlock(fileIdentifier, progress, totalBytesExpectedToWrite, downloadSpeedBytes); //exception when progressblock is nil
                 }
             });
         }
         
-        CGFloat remainingTime = [self remainingTimeForDownload:download bytesTransferred:totalBytesWritten totalBytesExpectedToWrite:totalBytesExpectedToWrite];
+        
         if (download.remainingTimeBlock) {
             dispatch_async(dispatch_get_main_queue(), ^(void) {
                 if (download.remainingTimeBlock) {
@@ -462,31 +464,31 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
 //    NSString *fileIdentifier = downloadTask.originalRequest.URL.absoluteString;
 //    TWRDownloadObject *download = [self.downloads objectForKey:fileIdentifier];
 //
-// 	BOOL success = YES;
+//     BOOL success = YES;
 //
 //    if ([downloadTask.response isKindOfClass:[NSHTTPURLResponse class]]) {
 //        NSInteger statusCode = [(NSHTTPURLResponse*)downloadTask.response statusCode];
 //        if (statusCode >= 400) {
-//	        NSLog(@"ERROR: HTTP status code %@", @(statusCode));
-//			success = NO;
+//            NSLog(@"ERROR: HTTP status code %@", @(statusCode));
+//            success = NO;
 //        }
 //    }
 //
-//	if (success) {
-//	    if (download.directoryName) {
-//	        destinationLocation = [[[self cachesDirectoryUrlPath] URLByAppendingPathComponent:download.directoryName] URLByAppendingPathComponent:download.fileName];
-//	    } else {
-//	        destinationLocation = [[self cachesDirectoryUrlPath] URLByAppendingPathComponent:download.fileName];
-//	    }
+//    if (success) {
+//        if (download.directoryName) {
+//            destinationLocation = [[[self cachesDirectoryUrlPath] URLByAppendingPathComponent:download.directoryName] URLByAppendingPathComponent:download.fileName];
+//        } else {
+//            destinationLocation = [[self cachesDirectoryUrlPath] URLByAppendingPathComponent:download.fileName];
+//        }
 //
-//	    // Move downloaded item from tmp directory to te caches directory
-//	    // (not synced with user's iCloud documents)
-//	    [[NSFileManager defaultManager] moveItemAtURL:location
-//	                                            toURL:destinationLocation
-//	                                            error:&error];
-//	    if (error) {
-//	        NSLog(@"ERROR: %@", error);
-//	    }
+//        // Move downloaded item from tmp directory to te caches directory
+//        // (not synced with user's iCloud documents)
+//        [[NSFileManager defaultManager] moveItemAtURL:location
+//                                                toURL:destinationLocation
+//                                                error:&error];
+//        if (error) {
+//            NSLog(@"ERROR: %@", error);
+//        }
 //
 //        if (download.completionBlock) {
 //            dispatch_async(dispatch_get_main_queue(), ^(void) {
@@ -500,7 +502,7 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
 //            localNotification.alertBody = [NSString stringWithFormat:@"%@ has been downloaded", download.friendlyName];
 //            [[UIApplication sharedApplication] presentLocalNotificationNow:localNotification];
 //        });
-//	}
+//    }
 //    else {
 //        if (download.errorBlock) {
 //            dispatch_async(dispatch_get_main_queue(), ^(void) {
@@ -596,11 +598,16 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
 - (CGFloat)remainingTimeForDownload:(TWRDownloadObject *)download
                    bytesTransferred:(int64_t)bytesTransferred
           totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
-    NSTimeInterval timeInterval = [[NSDate date] timeIntervalSinceDate:download.startDate];
-    CGFloat speed = (CGFloat)bytesTransferred / (CGFloat)timeInterval;
+    CGFloat speed = [self downloadSpeedForDownload:download bytesTransferred:bytesTransferred];
     CGFloat remainingBytes = totalBytesExpectedToWrite - bytesTransferred;
     CGFloat remainingTime =  remainingBytes / speed;
     return remainingTime;
+}
+
+- (CGFloat)downloadSpeedForDownload:(TWRDownloadObject *) download
+                   bytesTransferred:(int64_t)bytesTransferred {
+    NSTimeInterval timeInterval = [[NSDate date] timeIntervalSinceDate:download.startDate];
+    return (CGFloat)bytesTransferred / (CGFloat)timeInterval;
 }
 
 #pragma mark - File Management
@@ -669,15 +676,15 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
 }
 
 - (BOOL)isFileDownloadingWithFilename:(NSString *)fileNameIdentifier
-              withProgressBlock:(TWRDownloadProgressBlock)block {
+                    withProgressBlock:(TWRDownloadProgressBlock)block {
     return [self isFileDownloadingWithFilename:fileNameIdentifier
                              withProgressBlock:block
                                completionBlock:nil];
 }
 
 - (BOOL)isFileDownloadingWithFilename:(NSString *)fileNameIdentifier
-              withProgressBlock:(TWRDownloadProgressBlock)block
-                completionBlock:(TWRDownloadCompletionBlock)completionBlock {
+                    withProgressBlock:(TWRDownloadProgressBlock)block
+                      completionBlock:(TWRDownloadCompletionBlock)completionBlock {
     BOOL retValue = NO;
     TWRDownloadObject *download;
     for (TWRDownloadObject *downloadObj in self.downloads.allValues.copy) {
