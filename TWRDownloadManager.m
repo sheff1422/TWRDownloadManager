@@ -565,7 +565,7 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
             }
         }
         
-        if (download.errorBlock) {
+        if (download.errorBlock && error.code != -999) {
             dispatch_async(dispatch_get_main_queue(), ^(void) {
                 download.errorBlock(fileIdentifier);
             });
