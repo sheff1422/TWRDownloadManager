@@ -433,7 +433,7 @@ static NSTimeInterval const progressUpdateSeconds = 0.5;
             CGFloat progress = (CGFloat)totalBytesWritten / (CGFloat)totalBytesExpectedToWrite;
             dispatch_async(dispatch_get_main_queue(), ^(void) {
                 if(download.progressBlock){
-                    download.progressBlock(fileIdentifier, progress, totalBytesExpectedToWrite, downloadSpeedBytes); //exception when progressblock is nil
+                    download.progressBlock(fileIdentifier, progress, totalBytesExpectedToWrite, downloadSpeedBytes, remainingTime); //exception when progressblock is nil
                 }
             });
         }
